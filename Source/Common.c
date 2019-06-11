@@ -29,3 +29,22 @@ QueuePosition* addToQueue(QueuePosition **beginning, int clientId)
 	}
 	return new;
 }
+
+void printQueue(QueuePosition *beginning)
+{
+	QueuePosition *curr = NULL;
+	if (beginning == NULL) 
+	{	
+		printf("EMPTY");
+	}
+	else 
+	{
+		curr = beginning;
+		while (curr != NULL)
+		{
+			printf("%d ", curr->clientId);
+			curr = curr->next;
+		}
+	}
+	printf("\n");
+}
