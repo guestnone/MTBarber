@@ -1,157 +1,167 @@
 #include<stdlib.h>
 #include<stdio.h>
-#include<pthread.h>
+//#include<pthread.h>
 #include <assert.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include "myqueue.h"
+#include "cond_queue.h"
+#include <pthread.h>
+#include <string.h>
+#include <unistd.h>
 
-int clientsCounter=0;
 int resigned=0;
 int currentlyCuttedClient=-1;
 int queueSize=10;
+int isBarberWorking=0;
+struct client * listOfResignedClients=NULL;
+int nrOfAllClients=30;
+struct cond_queue * listOfClientsInQueue=NULL;
 
-struct client * listOfClients;
-pthread_mutex_t mut_onChair;//  = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mut_queue;//   = PTHREAD_MUTEX_INITIALIZER;
+/*mutex odpowiadajacy za czekanie w kolejce dopuki nie nadejdzie kolej klienta*/
+pthread_mutex_t mut_waitInqueue;
 
-pthread_cond_t cond_fryzjer;//= PTHREAD_COND_INITIALIZER;
-pthread_cond_t cond_kolejka;//= PTHREAD_COND_INITIALIZER;
-int randomizer=0;
-int cutHair()
+/*mutex odpowiadajacy za dostemm do kolejki klientow*/
+pthread_mutex_t mut_accessqueue;
+
+/*zmienna czekajaca na to az fryzjer bedzie
+gotowy by obsluzyc pierwszego klienta
+w kolejce i wysylajaca do niego wtedy sygnal*/
+pthread_cond_t cond_babrberIsWaiting;
+
+
+int debug=0;
+
+void waitTime(int maxtime)
 {
     srand(time(NULL));
-    int t=(rand()+randomizer)%10;
-	randomizer=(randomizer+1)%5;
+    int t=rand()%maxtime;
     sleep(t+1);
 }
 
-int waitToEnterSalon()
-{
-    srand(time(NULL));
-    int t=(rand()+randomizer)%6;
-	randomizer=(randomizer+1)%5;
-    sleep(1);
-}
 
 int showData()
 {
-    printf("resigned: %d WRomm: %d/%d [in: %d]\n",resigned,getNumberOfClients(listOfClients),queueSize,currentlyCuttedClient);
-}
-
-int NewClientOnChair()
-{
-
-    if(!isQueueEmpty(listOfClients))
-    {
-        //assert(listOfClients);
-        currentlyCuttedClient=getQueueFront(listOfClients);
-        listOfClients=popQueueFront(listOfClients);
-    }
-
-    else
-        currentlyCuttedClient =-1;
+    printf("resigned: %d WRomm: %d/%d [in: %d]\n",resigned,getcondQueueSize(listOfClientsInQueue),queueSize,currentlyCuttedClient);
 
 }
-void* hairCutter(void* data)
+
+
+void* clientThread(void* data)
 {
-//int i = getNumberOfClients(listOfClients);
-    while(1)
+    pthread_mutex_lock(&mut_accessqueue);
+    int nr=(int*)data;
+    if(getcondQueueSize(listOfClientsInQueue)<queueSize)
     {
+        struct cond_queue * thisclient;
+        thisclient = addElementtoCondQueue(&listOfClientsInQueue,nr);
+        showData();
+        if(debug==1)
+            printQueue(listOfClientsInQueue);
 
-        pthread_mutex_lock(&mut_onChair);
+        pthread_cond_signal(&cond_babrberIsWaiting);
+        pthread_mutex_unlock(&mut_accessqueue);
+        pthread_mutex_lock(&mut_waitInqueue);
 
-        while(isQueueEmpty(listOfClients))
+        while(currentlyCuttedClient!=nr)
         {
-            pthread_cond_wait(&cond_fryzjer,&mut_onChair);
+            pthread_cond_wait(&thisclient->cond,&mut_waitInqueue);
         }
 
-        if(currentlyCuttedClient!=-1)
-            cutHair();
-        //assert(currentlyCuttedClient!=-1);
-        NewClientOnChair();
-        //i--;
-       //printf("%d\n",i);
-        //printf("hair cutter: ");
-        showData();
-        //if(isQueueEmpty(listOfClients)==1)break;
-        pthread_mutex_unlock(&mut_onChair);
-    }
-}
-int enterHairdressingSalon()
-{
-    ///////////// mutex lock
-
-    clientsCounter++;
-    if(getNumberOfClients(listOfClients)<queueSize)
-    {
-
-        listOfClients=addClientToQueue(listOfClients,clientsCounter);
+        pthread_mutex_unlock(&mut_waitInqueue);
+        pthread_exit(NULL);
 
     }
     else
-    {
-        resigned++;
-    }
-    if(getNumberOfClients(listOfClients)==1)
-    {
-        pthread_cond_signal(&cond_fryzjer);
-    }
 
-    //////////// mutex lock
+    {
+        listOfResignedClients= addClientToQueue(listOfResignedClients,nr);
+        showData();
+        if(debug==1)
+        showList(listOfResignedClients);
+        resigned++;
+        pthread_mutex_unlock(&mut_accessqueue);
+    }
+    pthread_exit(NULL);
 }
-void* clients(void* data)
+void* barber(void* data)
 {
-    //struct client* c;
-    //c=(struct client*)data;
+
     while(1)
     {
-        waitToEnterSalon();
-        //lock mutex
-        pthread_mutex_lock(&mut_queue);
-        enterHairdressingSalon();
+        pthread_mutex_lock(&mut_accessqueue);
+        currentlyCuttedClient=-1;
+        while(isCondQueueEmpty(listOfClientsInQueue))
+        {
+            pthread_cond_wait(&cond_babrberIsWaiting,&mut_accessqueue);
+        }
 
-        //printf("queue: ");
+        struct cond_queue * cuttedClient;
+
+        cuttedClient = listOfClientsInQueue;
+
+        if(cuttedClient==NULL)
+        {
+            pthread_mutex_unlock(&mut_accessqueue);
+            continue;
+        }
+
+        if(!isCondQueueEmpty(listOfClientsInQueue));
+            listOfClientsInQueue =popCondQueueFront(listOfClientsInQueue);
+
+        currentlyCuttedClient = cuttedClient->nr;
         showData();
-        pthread_mutex_unlock(&mut_queue);
 
-        //lock mutex
+        if(debug==1)
+            printQueue(listOfClientsInQueue);
+
+        pthread_mutex_unlock(&mut_accessqueue);
+        pthread_cond_signal(&cuttedClient->cond);
+        free(cuttedClient);
+        waitTime(4);
     }
-}
-int goThroughQueue(struct client *c)
-{
-    //struct client *current = &first;
-    printf("resigned: %d\n",resigned);
 
-    printf("list of clients in queue:\n");
-    while(c)
+
+}
+
+int main(int argc, char ** argv)
+{
+
+    if(argc == 2)
+		if(strncmp(argv[1], "--debug", 6) == 0)
+    debug = 1;
+
+    pthread_mutex_init(&mut_accessqueue,NULL);
+    pthread_mutex_init(&mut_waitInqueue,NULL);
+
+    pthread_cond_init(&cond_babrberIsWaiting, NULL);
+
+    nrOfAllClients = 30;
+    pthread_t queue[nrOfAllClients];
+
+     pthread_t hairdresser;
+     pthread_create(&hairdresser,NULL,barber,NULL);
+
+int i=0;
+pthread_t client_thread_var;
+	for(;;)
     {
-
-        printf("%d\n",c->nr);
-        c=c->next;
+	i++;
+	if(i<0)i=0;
+        sleep(1);
+        pthread_create(&client_thread_var,NULL,*clientThread,(void*)(i));
     }
-    return 0;
-}
+    for(int i =0;i<nrOfAllClients;++i)
+    {
+        pthread_join(queue[i],NULL);
+    }
 
-int main()
-{
- pthread_mutex_init(&mut_onChair, NULL);
- pthread_mutex_init(&mut_queue, NULL);
-pthread_cond_init(&cond_fryzjer, NULL);
-pthread_cond_init(&cond_kolejka, NULL);
-
-
-    //listOfClients = initQueue(listOfClients,1);
-    //addClientToQueue(listOfClients,2);
-    //addClientToQueue(listOfClients,3);
-    //addClientToQueue(listOfClients,4);
-
-    pthread_t hairdresser,queue;
-    pthread_create(&hairdresser,NULL,hairCutter,NULL);
-    pthread_create(&queue,NULL,clients,NULL);
+    while(listOfResignedClients)
+    {
+        struct client * tmp;
+        tmp =listOfResignedClients;
+        listOfResignedClients=listOfResignedClients->next;
+        free (tmp);
+    }
 
 
-
-
-    pthread_join(hairdresser,NULL);
-    pthread_join(queue,NULL);
 }

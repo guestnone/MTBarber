@@ -1,6 +1,7 @@
 #include "myqueue.h"
-#include <stdlib.h>
 
+#include<stdlib.h>
+#include <stdio.h>
 
 
 
@@ -46,15 +47,43 @@ struct client* addClientToQueue(struct client *c,int nr)
 
 struct client* popQueueFront(struct client *c)
 {
-    if(getNumberOfClients(c)==0)return 0;
-	struct client *temp;
-	temp = c->next;
-	free(c);
-    return temp;
 
-    //c=c->next;
-    //return c;
+	//struct client *temp;
+	//temp = c->next;
+	//free(c);
+    //return temp;
+
+    if(c==NULL)
+        return NULL;
+    struct client *tmp;
+    tmp = c;
+
+    tmp=c->next;
+    free (c);
+
+    return tmp;
+
+
+
+
 }
+
+int showList(struct client *c)
+{
+    //struct client *current = &first;
+
+
+    printf("list of resigned clients:\n");
+    while(c)
+    {
+
+        printf("%d| ",c->nr);
+        c=c->next;
+    }
+    printf("\n");
+    return 0;
+}
+
 int isQueueEmpty(struct client* c)
 {
     if(!c)return 1;

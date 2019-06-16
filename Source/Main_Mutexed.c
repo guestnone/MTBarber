@@ -38,10 +38,10 @@ int randomizer=0;
 void cutHair(QueuePosition *client)
 {
 	// sleep for random time plus value from the randomizer
-    srand(time(NULL));
-    int t=(rand()+randomizer)%10;
+	srand(time(NULL));
+	int t=(rand()+randomizer)%10;
 	randomizer=(randomizer+1)%5;
-    sleep(t+1);
+	sleep(t+1);
 	// inform that he/she was cutted.
 	sem_post(&client->clientWasCutSemaphore);
 }
@@ -111,7 +111,6 @@ void* barberThread(void *notUsed)
 		pthread_mutex_lock(&gChangeNumClientsMutex);
 		gNumWaiting--;
 		QueuePosition *c = clientIn(gCurrClientQueue);
-		//printf("NEXT CLIENT!\n");
 		gCurrServed = c->clientId;
 		printStats(gNumResigned, gNumWaiting, gNumMaxChairs, gCurrServed);
 		if (gDebug == true)
@@ -132,7 +131,8 @@ int main(int argc, char *argv[])
 	gNumMaxChairs = 10;
 	pthread_t barberThreadPtr;
 	pthread_t customerThreadPtr;
-	
+
+	// Init the global client ready semaphore
 	sem_init(&gClientReadySemaphore, 0, 0);
 	
 	if (argc < 2)
