@@ -57,11 +57,11 @@ void* clientThread(void* data)
         showData();
         if(debug==1)
             printQueue(listOfClientsInQueue);
-
+		//wysyłam sygnał do fryzjera, że jest klient
         pthread_cond_signal(&cond_babrberIsWaiting);
         pthread_mutex_unlock(&mut_accessqueue);
         pthread_mutex_lock(&mut_waitInqueue);
-
+		//czekam az dostane sygnal do fryzjera ze przyszła kolej tego klienta
         while(currentlyCuttedClient!=nr)
         {
             pthread_cond_wait(&thisclient->cond,&mut_waitInqueue);
@@ -72,8 +72,9 @@ void* clientThread(void* data)
 
     }
     else
-
     {
+		//jesli kolejka jest przepełniona, to dodaję klienta do listy klientów 
+		//którzy nie weszli do kolejki
         listOfResignedClients= addClientToQueue(listOfResignedClients,nr);
         showData();
         if(debug==1)
@@ -88,13 +89,16 @@ void* barber(void* data)
 
     while(1)
     {
+		//blokuję dostęp do kolejki klientów
         pthread_mutex_lock(&mut_accessqueue);
         currentlyCuttedClient=-1;
+		//czekam aż pojawi się klient (fryzjer śpi)
         while(isCondQueueEmpty(listOfClientsInQueue))
         {
             pthread_cond_wait(&cond_babrberIsWaiting,&mut_accessqueue);
         }
-
+		//tworzę tymczasową zmienną przechowującą element klienta który będzie 
+		//obsługiwany
         struct cond_queue * cuttedClient;
 
         cuttedClient = listOfClientsInQueue;
@@ -113,8 +117,9 @@ void* barber(void* data)
 
         if(debug==1)
             printQueue(listOfClientsInQueue);
-
+		
         pthread_mutex_unlock(&mut_accessqueue);
+		//wysyłam sygnał do klienta że nadeszła jego kolej
         pthread_cond_signal(&cuttedClient->cond);
         free(cuttedClient);
         waitTime(4);
