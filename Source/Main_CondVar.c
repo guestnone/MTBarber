@@ -130,10 +130,17 @@ void* barber(void* data)
 
 int main(int argc, char ** argv)
 {
+    if (argc < 2)
+	{
+		printf("Usage: MainCondVar [NUMCHAIRS] [--debug]\n\n    --debug - lists the state of the queues\n");
+		exit(EXIT_FAILURE);
+	}
 
-    if(argc == 2)
-		if(strncmp(argv[1], "--debug", 6) == 0)
-    debug = 1;
+    queueSize = atoi(argv[1]);
+
+    if(argc == 3)
+		if(strncmp(argv[2], "--debug", 6) == 0)
+			debug = 1;
 
     pthread_mutex_init(&mut_accessqueue,NULL);
     pthread_mutex_init(&mut_waitInqueue,NULL);
