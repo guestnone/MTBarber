@@ -99,7 +99,7 @@ struct cond_queue* popCondQueueFront(struct cond_queue *c)
 
 void printQueue(struct cond_queue *c)
 {
-//printf("printing list of clients in queue \n");
+
     struct cond_queue * temp;
     temp = c;
     if(isCondQueueEmpty(c))
@@ -107,11 +107,13 @@ void printQueue(struct cond_queue *c)
        // printf("queue is empty - cant print it\n");
         return;
     }
+printf("printing list of clients in queue \n");
     while(temp !=NULL)
     {
         printf("%d | ",temp->nr);
         temp=temp->next;
     }
+printf("\n");
    // printf("done printing queue\n");
 }
 int isCondQueueEmpty(struct cond_queue* c)
